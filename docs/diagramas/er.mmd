@@ -1,0 +1,71 @@
+erDiagram
+  Roles ||--o{ Users : "asigna rol"
+  Users ||--o{ Incidents : "registra / atiende"
+  Users ||--o{ RetentionActions : "asigna / ejecuta"
+  Users |o--o{ AuditOutbox : "actor"
+  ClientSegments ||--o{ Clients : "clasifica"
+  Clients ||--o{ Incidents : "reporta"
+  Clients ||--o{ RetentionActions : "recibe"
+  Services ||--o{ Incidents : "afecta"
+  IncidentCategories ||--o{ Incidents : "motivo"
+  RetentionActions ||--o| RetentionActionIncidents : "vincula"
+  Incidents ||--o{ RetentionActionIncidents : "origina"
+
+  Roles { int RoleId PK
+    varchar Code UK
+    nvarchar Name }
+  Users { int UserId PK
+    nvarchar Name
+    nvarchar Email UK
+    varchar PasswordHash
+    int RoleId FK
+    bit Active
+    datetime2 CreatedAt }
+  ClientSegments { int SegmentId PK
+    nvarchar Name UK }
+  Clients { int ClientId PK
+    nvarchar Name
+    nvarchar Email UK
+    varchar Phone
+    int SegmentId FK
+    varchar Status
+    datetime2 CreatedAt }
+  Services { int ServiceId PK
+    nvarchar Name UK
+    int SlaHours
+    bit Active }
+  IncidentCategories { int CategoryId PK
+    nvarchar Name UK }
+  Incidents { int IncidentId PK
+    int ClientId FK
+    int ServiceId FK
+    int CategoryId FK
+    int AssignedUserId FK
+    int CreatedById FK
+    nvarchar Description
+    tinyint Severity
+    tinyint Satisfaction
+    varchar Status
+    datetime2 CreatedAt
+    datetime2 ResolvedAt
+    int Version }
+  RetentionActions { int ActionId PK
+    int ClientId FK
+    int AssignedUserId FK
+    int CreatedById FK
+    varchar Type
+    nvarchar Description
+    datetime2 DueAt
+    varchar Status
+    varchar Outcome
+    datetime2 CompletedAt }
+  RetentionActionIncidents { int ActionId PK,FK
+    int IncidentId FK }
+  AuditOutbox { uniqueidentifier EventId PK
+    varchar EventType
+    varchar Entity
+    int EntityId
+    int ActorId FK
+    nvarchar Payload
+    datetime2 OccurredAt
+    datetime2 ProcessedAt }

@@ -1,0 +1,71 @@
+erDiagram
+  Roles ||--o{ Users : "asigna rol"
+  Users ||--o{ Incidents : "registra / atiende"
+  Users ||--o{ RetentionActions : "asigna / ejecuta"
+  Users |o--o{ AuditOutbox : "actor"
+  ClientSegments ||--o{ Clients : "clasifica"
+  Clients ||--o{ Incidents : "reporta"
+  Clients ||--o{ RetentionActions : "recibe"
+  Services ||--o{ Incidents : "afecta"
+  IncidentCategories ||--o{ Incidents : "motivo"
+  RetentionActions ||--o| RetentionActionIncidents : "vincula"
+  Incidents ||--o{ RetentionActionIncidents : "origina"
+
+  Roles {
+    int RoleId PK
+    varchar Code UK
+  }
+  Users {
+    int UserId PK
+    nvarchar Email UK
+    int RoleId FK
+    bit Active
+  }
+  ClientSegments {
+    int SegmentId PK
+    nvarchar Name UK
+  }
+  Clients {
+    int ClientId PK
+    nvarchar Email UK
+    int SegmentId FK
+    varchar Status
+  }
+  Services {
+    int ServiceId PK
+    nvarchar Name UK
+    int SlaHours
+  }
+  IncidentCategories {
+    int CategoryId PK
+    nvarchar Name UK
+  }
+  Incidents {
+    int IncidentId PK
+    int ClientId FK
+    int ServiceId FK
+    int CategoryId FK
+    int AssignedUserId FK
+    tinyint Severity
+    tinyint Satisfaction
+    varchar Status
+    int Version
+  }
+  RetentionActions {
+    int ActionId PK
+    int ClientId FK
+    int AssignedUserId FK
+    varchar Type
+    datetime2 DueAt
+    varchar Outcome
+  }
+  RetentionActionIncidents {
+    int ActionId PK,FK
+    int IncidentId FK
+  }
+  AuditOutbox {
+    uniqueidentifier EventId PK
+    varchar EventType
+    int ActorId FK
+    datetime2 ProcessedAt
+  }

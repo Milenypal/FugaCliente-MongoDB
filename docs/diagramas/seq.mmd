@@ -1,0 +1,36 @@
+sequenceDiagram
+  autonumber
+  participant A as Agente de atención
+  participant UI as Interfaz web
+  participant MW as Middlewares
+  participant C as Controlador
+  participant S as IncidentService
+  participant R as SqlRepository
+  participant DB as SQL Server
+  participant W as OutboxWorker
+  participant M as MongoDB
+  A->>UI: Completa el formulario de incidencia
+  UI->>MW: POST /api/v1/incidents (JSON + Bearer JWT)
+  Note over MW: Verificar JWT, rol y validar con Zod
+  alt Datos inválidos
+    MW-->>UI: 400 VALIDATION_ERROR (detalle por campo)
+  else Datos válidos
+    MW->>C: req.validated.body
+    C->>S: create(input, usuario)
+    S->>R: createIncident(input)
+    R->>DB: EXEC sp_RegisterIncident
+    activate DB
+    Note over DB: BEGIN TRAN · validar cliente, servicio y categoría
+    Note over DB: INSERT Incidents + INSERT AuditOutbox
+    DB-->>R: COMMIT, id de la incidencia
+    deactivate DB
+    R-->>S: incidencia (vw_IncidentDetail)
+    S-->>C: incidencia creada
+    C-->>UI: 201 Created + Location
+    UI-->>A: Aviso y puntaje de riesgo actualizado
+  end
+  loop Cada 3 segundos
+    W->>DB: Leer eventos pendientes de AuditOutbox
+    W->>M: Upsert idempotente por eventId (events)
+    W->>DB: Marcar evento como procesado
+  end
