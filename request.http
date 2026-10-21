@@ -1,0 +1,359 @@
+###############################################################################
+# FugaCliente · Pruebas de los endpoints del API REST
+# Extensión: REST Client (humao.rest-client) para Visual Studio Code
+#
+# Uso:
+#   1. Inicia el servidor:  npm run dev   (o npm run demo)
+#   2. Ejecuta las peticiones EN ORDEN con "Send Request" (o Ctrl+Alt+R).
+#      La petición "login" guarda el token; las de creación guardan los IDs.
+#   3. Cambia @port si el servidor usa otro valor de la variable PORT.
+###############################################################################
+
+@port = 3000
+@host = 127.0.0.1
+@baseUrl = http://{{host}}:{{port}}/api/v1
+@adminEmail = admin@fugacliente.local
+@adminPassword = FugaCliente2026!
+
+# Valores que se llenan automáticamente con las respuestas
+@token = {{login.response.body.$.data.token}}
+@clientId = {{createClient.response.body.$.data.id}}
+@incidentId = {{createIncident.response.body.$.data.id}}
+@incidentVersion = {{createIncident.response.body.$.data.version}}
+@actionId = {{createAction.response.body.$.data.id}}
+@serviceId = {{createService.response.body.$.data.id}}
+@userId = {{createUser.response.body.$.data.id}}
+
+###############################################################################
+# 1. SISTEMA (público)
+###############################################################################
+
+### 1.1 Índice del API → 200
+GET {{baseUrl}}/
+
+### 1.2 Estado de SQL Server, MongoDB y outbox → 200 (503 si una base no responde)
+GET {{baseUrl}}/health
+
+### 1.3 Especificación OpenAPI → 200
+GET {{baseUrl}}/openapi.json
+
+###############################################################################
+# 2. AUTENTICACIÓN
+###############################################################################
+
+### 2.1 Login correcto → 200 y JWT (guarda el token)
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{adminEmail}}",
+  "password": "{{adminPassword}}"
+}
+
+### 2.2 Login con contraseña incorrecta → 401 INVALID_CREDENTIALS
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{adminEmail}}",
+  "password": "clave-incorrecta"
+}
+
+### 2.3 Petición sin token → 401 UNAUTHORIZED
+GET {{baseUrl}}/clients
+
+###############################################################################
+# 3. CATÁLOGOS Y SERVICIOS
+###############################################################################
+
+### 3.1 Catálogos: roles, segmentos, servicios y categorías → 200
+GET {{baseUrl}}/catalogs
+Authorization: Bearer {{token}}
+
+### 3.2 Listar servicios con su SLA → 200
+GET {{baseUrl}}/services
+Authorization: Bearer {{token}}
+
+### 3.3 Crear servicio (admin) → 201 + Location
+# @name createService
+POST {{baseUrl}}/services
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Instalaciones {{$randomInt 1000 9999}}",
+  "slaHours": 72
+}
+
+### 3.4 Consultar servicio por ID → 200
+GET {{baseUrl}}/services/{{serviceId}}
+Authorization: Bearer {{token}}
+
+### 3.5 Actualizar el SLA del servicio → 200
+PATCH {{baseUrl}}/services/{{serviceId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "slaHours": 48
+}
+
+###############################################################################
+# 4. USUARIOS
+###############################################################################
+
+### 4.1 Perfil de la sesión → 200
+GET {{baseUrl}}/users/me
+Authorization: Bearer {{token}}
+
+### 4.2 Listar usuarios (sin hashes de contraseña) → 200
+GET {{baseUrl}}/users
+Authorization: Bearer {{token}}
+
+### 4.3 Crear usuario agente (admin) → 201 + Location
+# @name createUser
+POST {{baseUrl}}/users
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Agente de prueba",
+  "email": "agente.{{$timestamp}}@fugacliente.local",
+  "password": "AgentePrueba2026!",
+  "role": "agente"
+}
+
+### 4.4 Consultar usuario por ID → 200
+GET {{baseUrl}}/users/{{userId}}
+Authorization: Bearer {{token}}
+
+### 4.5 Cambiar el rol del usuario a analista → 200
+PATCH {{baseUrl}}/users/{{userId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "role": "analista"
+}
+
+###############################################################################
+# 5. CLIENTES
+###############################################################################
+
+### 5.1 Crear cliente → 201 + Location (guarda clientId)
+# @name createClient
+POST {{baseUrl}}/clients
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Comercial Andina SAC",
+  "email": "cliente.{{$timestamp}}@example.com",
+  "phone": "+51 999 888 777",
+  "segmentId": 2
+}
+
+### 5.2 Validación de entrada: nombre corto y correo inválido → 400 VALIDATION_ERROR
+POST {{baseUrl}}/clients
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "A",
+  "email": "no-es-correo",
+  "segmentId": 2
+}
+
+### 5.3 Listar clientes ordenados por riesgo (paginado y filtrado) → 200
+GET {{baseUrl}}/clients?page=1&limit=10&status=activo
+Authorization: Bearer {{token}}
+
+### 5.4 Buscar clientes con riesgo alto → 200
+GET {{baseUrl}}/clients?level=alto
+Authorization: Bearer {{token}}
+
+### 5.5 Consultar cliente por ID → 200
+GET {{baseUrl}}/clients/{{clientId}}
+Authorization: Bearer {{token}}
+
+### 5.6 Actualizar teléfono del cliente → 200
+PATCH {{baseUrl}}/clients/{{clientId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "phone": "+51 911 222 333"
+}
+
+### 5.7 Cliente inexistente → 404 NOT_FOUND
+GET {{baseUrl}}/clients/999999
+Authorization: Bearer {{token}}
+
+###############################################################################
+# 6. INCIDENCIAS (stored procedure sp_RegisterIncident)
+###############################################################################
+
+### 6.1 Registrar incidencia grave con satisfacción 1 → 201 (guarda incidentId)
+# @name createIncident
+POST {{baseUrl}}/incidents
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "clientId": {{clientId}},
+  "serviceId": 1,
+  "categoryId": 1,
+  "severity": 3,
+  "satisfaction": 1,
+  "assignedUserId": 1,
+  "description": "El cliente no recibió soporte técnico en tres días."
+}
+
+### 6.2 Riesgo explicable del cliente → 200 (puntaje 50: 25 + 10 + 15)
+GET {{baseUrl}}/clients/{{clientId}}/risk
+Authorization: Bearer {{token}}
+
+### 6.3 Listar incidencias abiertas → 200
+GET {{baseUrl}}/incidents?status=abierta&limit=10
+Authorization: Bearer {{token}}
+
+### 6.4 Consultar incidencia por ID → 200
+GET {{baseUrl}}/incidents/{{incidentId}}
+Authorization: Bearer {{token}}
+
+### 6.5 Resolver la incidencia con control de versión → 200 (versión 2)
+PATCH {{baseUrl}}/incidents/{{incidentId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "status": "resuelta",
+  "expectedVersion": {{incidentVersion}}
+}
+
+### 6.6 Repetir con la versión antigua → 409 CONFLICT (concurrencia optimista)
+PATCH {{baseUrl}}/incidents/{{incidentId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "status": "en_proceso",
+  "expectedVersion": {{incidentVersion}}
+}
+
+### 6.7 Riesgo después de resolver → 200 (puntaje 40)
+GET {{baseUrl}}/clients/{{clientId}}/risk
+Authorization: Bearer {{token}}
+
+###############################################################################
+# 7. RETENCIÓN
+###############################################################################
+
+### 7.1 Asignar acción de retención con fecha futura → 201 (guarda actionId)
+# @name createAction
+POST {{baseUrl}}/retention-actions
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "clientId": {{clientId}},
+  "incidentId": {{incidentId}},
+  "assignedUserId": 1,
+  "type": "contacto",
+  "description": "Llamar al cliente para confirmar la solución y ofrecer un descuento.",
+  "dueAt": "{{$datetime iso8601 1 d}}"
+}
+
+### 7.2 Listar acciones pendientes → 200
+GET {{baseUrl}}/retention-actions?status=pendiente
+Authorization: Bearer {{token}}
+
+### 7.3 Consultar acción por ID → 200
+GET {{baseUrl}}/retention-actions/{{actionId}}
+Authorization: Bearer {{token}}
+
+### 7.4 Registrar el resultado de la acción → 200
+PATCH {{baseUrl}}/retention-actions/{{actionId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "outcome": "recuperado"
+}
+
+### 7.5 Cambiar un resultado ya registrado → 409 CONFLICT
+PATCH {{baseUrl}}/retention-actions/{{actionId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "outcome": "sin_respuesta"
+}
+
+###############################################################################
+# 8. COMENTARIOS (MongoDB, colección comments)
+###############################################################################
+
+### 8.1 Agregar nota de seguimiento → 201
+POST {{baseUrl}}/clients/{{clientId}}/comments
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "text": "El cliente confirmó por teléfono que el servicio ya funciona.",
+  "channel": "telefono"
+}
+
+### 8.2 Listar notas del cliente → 200
+GET {{baseUrl}}/clients/{{clientId}}/comments
+Authorization: Bearer {{token}}
+
+###############################################################################
+# 9. INDICADORES, AUDITORÍA Y REPORTES
+###############################################################################
+
+### 9.1 Panel de indicadores → 200
+GET {{baseUrl}}/dashboard
+Authorization: Bearer {{token}}
+
+### 9.2 Alertas: clientes con riesgo medio o alto → 200
+GET {{baseUrl}}/alerts
+Authorization: Bearer {{token}}
+
+### 9.3 Auditoría de eventos de negocio (MongoDB, colección events) → 200
+GET {{baseUrl}}/logs?kind=business&limit=10
+Authorization: Bearer {{token}}
+
+### 9.4 Auditoría de un cliente → 200
+GET {{baseUrl}}/logs?clientId={{clientId}}
+Authorization: Bearer {{token}}
+
+### 9.5 Resumen de auditoría con agregación $facet → 200
+GET {{baseUrl}}/logs/summary?days=30
+Authorization: Bearer {{token}}
+
+### 9.6 Exportar clientes con su riesgo a CSV → 200 text/csv
+GET {{baseUrl}}/reports/clients.csv?status=activo
+Authorization: Bearer {{token}}
+
+###############################################################################
+# 10. ARCHIVO LÓGICO (al final, porque bloquea nuevas incidencias)
+###############################################################################
+
+### 10.1 Archivar cliente (admin) → 204 sin cuerpo
+DELETE {{baseUrl}}/clients/{{clientId}}
+Authorization: Bearer {{token}}
+
+### 10.2 Incidencia para un cliente archivado → 409 CONFLICT
+POST {{baseUrl}}/incidents
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "clientId": {{clientId}},
+  "serviceId": 1,
+  "categoryId": 1,
+  "severity": 1,
+  "description": "Este registro debe ser rechazado porque el cliente está archivado."
+}

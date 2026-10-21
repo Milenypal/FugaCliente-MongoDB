@@ -1,0 +1,37 @@
+FUGACLIENTE 2.0 - PROYECTO DE EVALUACIÓN PARCIAL
+
+1. Extrae todo el ZIP y abre la carpeta FugaCliente en Visual Studio Code.
+2. Abre Terminal > Nueva terminal. Debes ver package.json en esa carpeta.
+3. Para ver el proyecto rápidamente ejecuta:
+     npm install
+     npm run demo
+4. Abre http://localhost:3000 en tu navegador.
+     Administrador: admin@fugacliente.local
+     Analista:      carla.analista@fugacliente.local
+     Agente:        jorge.agente@fugacliente.local
+     Contraseña:    FugaCliente2026!
+   Documentación del API: http://localhost:3000/api/docs
+
+La DEMO usa datos temporales. Para cumplir la persistencia requerida en el PDF:
+     Copia .env.example como .env y revisa sus variables.
+     docker compose up -d --wait
+     npm run db:setup
+     npm run db:seed
+     npm run doctor
+     npm run dev
+
+Si ya tenías la versión 1 instalada, ejecuta de nuevo npm run db:setup
+(es seguro: crea las vistas nuevas sin borrar datos).
+
+ENTREGA Y SUSTENTACIÓN
+ - Novedades de esta versión:       CHANGELOG.md
+ - Informe editable:                docs/Informe_FugaCliente.docx
+ - Guion de sustentación:           docs/SUSTENTACION.md
+ - Rutas, filtros y códigos HTTP:   docs/API.md
+ - Diagrama de arquitectura:        docs/arquitectura.png
+ - Colección de Postman:            docs/FugaCliente.postman_collection.json
+ - Base de datos SQL:               database/schema.sql
+ - Pruebas automáticas:             npm run verify
+ - Pruebas de endpoints (REST Client): request.http
+
+No subas node_modules ni .env a GitHub. El ZIP ya excluye ambas cosas.

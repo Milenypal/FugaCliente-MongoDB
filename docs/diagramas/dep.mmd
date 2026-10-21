@@ -1,0 +1,25 @@
+flowchart LR
+  subgraph PC["Equipo del usuario"]
+    B["Navegador web<br/>Interfaz SPA · HTML/CSS/JS"]
+    P["Postman<br/>Colección de pruebas"]
+  end
+  subgraph SRV["Servidor de aplicación · Node.js 22"]
+    API["FugaCliente API<br/>Express 5 · :3000<br/>/api/v1 · /api/docs"]
+    WK["OutboxWorker<br/>reintentos cada 3 s"]
+  end
+  subgraph DK["Docker Compose"]
+    SQL[("SQL Server 2022<br/>:1433 · volumen sql_data")]
+    MDB[("MongoDB 8.0<br/>:27017 · volumen mongo_data")]
+  end
+  GH["GitHub Actions<br/>CI: check + 41 pruebas"]
+  B -- "HTTPS/HTTP · JSON + JWT" --> API
+  P -- "HTTP · JSON + JWT" --> API
+  API -- "TDS · mssql<br/>SP y vistas" --> SQL
+  API -- "MongoDB driver<br/>logs y comentarios" --> MDB
+  WK -- "lee AuditOutbox" --> SQL
+  WK -- "upsert events" --> MDB
+  GH -. "valida cada cambio" .-> SRV
+  classDef db fill:#E3F4F1,stroke:#0E8174,color:#0F2A47
+  classDef app fill:#EAF1FA,stroke:#2F5D8C,color:#0F2A47
+  class SQL,MDB db
+  class API,WK,B,P,GH app
